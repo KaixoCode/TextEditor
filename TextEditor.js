@@ -276,9 +276,11 @@ class TextEditor extends HTMLElement {
                 this.deleteSelection();
                 this.format(this.text, "\n");
             } else if (event.key == "Backspace") {
-                if (!this.deleteSelection()) {
-                    let index = this.caretIndex();
+                if (this.deleteSelection()) {
+                    this.format(this.text);
+                } else {
                     let text = this.text;
+                    let index = this.caretIndex();
                     if (event.ctrlKey) {
                         if (index != 0) {
                             let cat = characterCategory(text[index - 1]);
@@ -303,9 +305,11 @@ class TextEditor extends HTMLElement {
                     }
                 }
             } else if (event.key == "Delete") {
-                if (!this.deleteSelection()) {
-                    let index = this.caretIndex();
+                if (this.deleteSelection()) {
+                    this.format(this.text);
+                } else {
                     let text = this.text;
+                    let index = this.caretIndex();
                     if (event.ctrlKey) {
                         if (index != text.length) {
                             let cat = characterCategory(text[index]);
