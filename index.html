@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="TextEditor.css">
+    <style>
+        body {
+            margin: 0;
+            background-color: #eee;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 100px;
+            box-sizing: border-box;
+        }
+        
+        latex-text-editor.text-editor {
+            --text-editor-color: #2e373a;
+            font-size: 1.2em;
+            flex-grow: 1;
+            height: 100%;
+        }
+        
+        latex-text-editor span[data-type="cmd"],
+        latex-text-editor span[data-type="cmd"]::selection {
+            color: #268BD2;
+        }
+        
+        latex-text-editor span[data-type="vrb"],
+        latex-text-editor span[data-type="vrb"]::selection {
+            color: #2e373a;
+        }
+        
+        latex-text-editor span[data-type="cmt"],
+        latex-text-editor span[data-type="cmt"]::selection {
+            color: #93A1A1;
+        }
+        
+        latex-text-editor span[data-type="sbl"],
+        latex-text-editor span[data-type="sbl"]::selection {
+            color: #2e373a;
+        }
+        
+        latex-text-editor span[data-type="mth"],
+        latex-text-editor span[data-type="mth"]::selection {
+            color: #2AA198;
+        }
+    </style>
+
+</head>
+
+<body>
+    <latex-text-editor></latex-text-editor>
+
+    <script src="TextEditor.js"></script>
+    <script src="LaTeXTextEditor.js"></script>
+</body>
+
+</html>
