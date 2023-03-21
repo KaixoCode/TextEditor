@@ -1,3 +1,125 @@
+const textEditorStyle = `
+.text-editor {
+    --text-editor-line-number-width: 60px;
+    --text-editor-line-number-padding: 8px;
+    --text-editor-padding: 0px;
+    --text-editor-line-number-color: #111;
+    --text-editor-line-number-background: #ddd;
+    --text-editor-background: #fff;
+    --text-editor-selected-line-background: #eee;
+    --text-editor-selected-line-number-background: #ccc;
+    --text-editor-selection-background: #B5D5FF;
+    --text-editor-caret-color: #000;
+    --text-editor-color: #000;
+    --text-editor-selection-color: #000;
+    --text-editor-highlight: #bbb;
+    --text-editor-line-padding: 0px;
+    font-family: monospace;
+    display: block;
+    position: relative;
+    padding: var(--text-editor-padding);
+    padding-left: var(--line-number-width);
+    outline: none;
+    font-size: 1rem;
+    white-space: pre-wrap;
+    tab-size: 4;
+    overflow-y: auto;
+    overflow-x: visible;
+    overflow-wrap: break-word;
+    box-sizing: border-box;
+    color: var(--text-editor-color);
+    caret-color: var(--text-editor-caret-color);
+    background-color: var(--text-editor-background);
+    counter-reset: text-editor-linenmr;
+}
+
+.dark-mode {
+    --text-editor-line-number-color: rgb(230, 230, 230);
+    --text-editor-line-number-background: rgb(28, 28, 28);
+    --text-editor-background: rgb(20, 20, 20);
+    --text-editor-selected-line-background: rgb(28, 28, 28);
+    --text-editor-selected-line-number-background: rgb(38, 38, 38);
+    --text-editor-selection-background: #182e4b;
+    --text-editor-caret-color: rgb(230, 230, 230);
+    --text-editor-color: rgb(230, 230, 230);
+    --text-editor-selection-color: rgb(230, 230, 230);
+    --text-editor-highlight: rgb(108, 108, 108);
+}
+
+.text-editor::before {
+    content: '';
+    position: absolute;
+    width: var(--text-editor-line-number-width);
+    height: 100%;
+    background-color: var(--text-editor-line-number-background);
+}
+
+.text-editor ::selection {
+    color: var(--text-editor-selection-color);
+    background-color: var(--text-editor-selection-background);
+}
+
+.text-editor div.line {
+    padding: var(--text-editor-line-padding) var(--text-editor-padding) var(--text-editor-line-padding) calc(var(--text-editor-line-number-width) + var(--text-editor-line-number-padding));
+    min-height: 1em;
+    counter-increment: text-editor-linenmr;
+    position: relative;
+    transition: background-color 0.1s;
+}
+
+.text-editor div.line.selected {
+    background-color: var(--text-editor-selected-line-background);
+}
+
+.text-editor div.line::before {
+    content: counter(text-editor-linenmr);
+    position: absolute;
+    box-sizing: border-box;
+    top: 0;
+    left: 0;
+    padding-top: var(--text-editor-line-padding);
+    width: var(--text-editor-line-number-width);
+    height: 100%;
+    text-align: right;
+    padding-right: var(--text-editor-line-number-padding);
+    background-color: var(--text-editor-line-number-background);
+    color: var(--text-editor-line-number-color);
+    transition: background-color 0.1s;
+}
+
+.text-editor div.line.multi-selected::before,
+.text-editor div.line.selected::before {
+    background-color: var(--text-editor-selected-line-number-background);
+}
+
+.text-editor span.highlighted {
+    box-shadow: 0 0 0px 1px var(--text-editor-highlight) inset;
+}
+`;
+
+const textEditorStylesheet = document.createElement("style");
+textEditorStylesheet.innerHTML = textEditorStyle;
+document.head.prepend(textEditorStylesheet);
+
+/**
+ * Find the first index of the string/regex in a string, starting at offset.
+ * @param {*} str string/regex to find
+ * @param {*} offset start at offset in original string
+ * @returns index of str in string
+ */
+String.prototype.findFirstOf = function(str, offset = 0) {
+    if (str instanceof RegExp) {
+        let start = this.slice(offset).search(str);
+        if (start == -1) start = Number.MAX_VALUE;
+        else start += offset;
+        return start;
+    } else {
+        let start = this.indexOf(str, offset);
+        if (start == -1) start = Number.MAX_VALUE;
+        return start;
+    }
+}
+
 /**
  * Recursively loop over all child nodes, return true in the callback to stop looping.
  * @param {*} fun callback
@@ -23,15 +145,17 @@ HTMLElement.prototype.recursiveLoopNodes = function(fun) {
  * @param {*} set if undefined, returns caretIndex, otherwise sets.
  * @returns if argument provided, nothing, otherwise caretIndex.
  */
-HTMLElement.prototype.caretIndex = function(set = undefined) {
+HTMLElement.prototype.caretIndex = function(set = undefined, otherend = false) {
     const selection = window.getSelection();
     if (set === undefined) {
+        let lookingFor = otherend ? selection.anchorNode : selection.focusNode;
+        let offset = otherend ? selection.anchorOffset : selection.focusOffset;
         let caretIndex = 0;
         this.recursiveLoopNodes(node => {
             switch (node.nodeType) {
                 case Node.TEXT_NODE:
-                    if (node === selection.focusNode) {
-                        caretIndex += selection.focusOffset;
+                    if (node === lookingFor) {
+                        caretIndex += offset;
                         return true;
                     }
                     caretIndex += node.textContent.length;
@@ -39,7 +163,7 @@ HTMLElement.prototype.caretIndex = function(set = undefined) {
 
                 default:
                     if (node.tagName == 'BR') caretIndex += 1;
-                    if (node === selection.focusNode) {
+                    if (node === lookingFor) {
                         caretIndex--;
                         return true;
                     }
@@ -75,6 +199,37 @@ HTMLElement.prototype.caretIndex = function(set = undefined) {
 }
 
 /**
+ * Get the element at the index.
+ * @param {*} index 
+ * @returns 
+ */
+HTMLElement.prototype.getElementAtIndex = function(index) {
+    let element = null;
+    this.recursiveLoopNodes(node => {
+        switch (node.nodeType) {
+            case Node.TEXT_NODE:
+                if (index < node.length) {
+                    element = node;
+                    return true;
+                }
+                index -= node.length;
+                return false;
+
+            default:
+                if (node.tagName == 'BR') {
+                    if (index < 1) {
+                        element = node;
+                        return true;
+                    }
+                    index -= 1;
+                }
+                return false;
+        }
+    });
+    return element;
+}
+
+/**
  * Scroll a child element into view, but only if it's not already in view.
  * @param {*} target 
  */
@@ -82,13 +237,13 @@ HTMLElement.prototype.scrollIntoViewIfNeeded = function(target) {
     // Target is outside the viewport from the bottom
     if (target.getBoundingClientRect().bottom > this.getBoundingClientRect().bottom) {
         //  The bottom of the target will be aligned to the bottom of the visible area of the scrollable ancestor.
-        target.scrollIntoView(false);
+        target.scrollIntoView({ behavior: "smooth", block: "end" });
     }
 
     // Target is outside the view from the top
     if (target.getBoundingClientRect().top < this.getBoundingClientRect().top) {
         // The top of the target will be aligned to the top of the visible area of the scrollable ancestor
-        target.scrollIntoView();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 };
 
@@ -160,6 +315,9 @@ function characterCategory(char) {
 class TextEditor extends HTMLElement {
     constructor() {
         super();
+        this.highlightMatching = [];
+        this.autoComplete = [];
+        this.overwrite = [];
     }
 
     /**
@@ -242,7 +400,15 @@ class TextEditor extends HTMLElement {
         if (selection.anchorNode === selection.focusNode &&
             selection.anchorOffset == selection.focusOffset) return false;
         else {
-            selection.deleteFromDocument();
+            let caretFocus = this.caretIndex();
+            let caretAnchor = this.caretIndex(undefined, true);
+            if (caretFocus < caretAnchor) {
+                selection.deleteFromDocument();
+                this.caretIndex(caretFocus);
+            } else {
+                selection.deleteFromDocument();
+                this.caretIndex(caretAnchor);
+            }
             return true;
         }
     }
@@ -265,8 +431,29 @@ class TextEditor extends HTMLElement {
         // Because browsers are shit, we need to handle typing characters ourselves...
         this.addEventListener("keypress", (event) => {
             this.deleteSelection();
-            this.format(this.text, event.key);
-            this.pushHistory({ content: this.text, caret: this.caretIndex() });
+            if (this.overwrite.includes(event.key)) {
+                let text = this.text;
+                let caretIndex = this.caretIndex();
+
+                if (text[caretIndex] !== event.key) {
+                    this.format(this.text, event.key);
+                    this.pushHistory({ content: this.text, caret: this.caretIndex() });
+                } else {
+                    this.caretIndex(caretIndex + 1);
+                }
+            } else if (event.key in this.autoComplete) {
+                let autoAdd = this.autoComplete[event.key];
+                this.format(this.text, event.key);
+                let text = this.text;
+                this.pushHistory({ content: text, caret: this.caretIndex() });
+                this.format(text, autoAdd, false);
+                this.pushHistory({ content: this.text, caret: this.caretIndex() });
+            } else if (event.key.length == 1) {
+                this.format(this.text, event.key);
+                this.pushHistory({ content: this.text, caret: this.caretIndex() });
+            }
+
+            this.scrollToCaret();
             event.preventDefault();
         });
 
@@ -298,7 +485,16 @@ class TextEditor extends HTMLElement {
                         }
                     } else {
                         if (index != 0) {
-                            text = text.slice(0, index - 1) + text.slice(index);
+                            let toRemove = text[index - 1];
+                            if (toRemove in this.autoComplete) {
+                                if (text[index] == this.autoComplete[toRemove]) {
+                                    text = text.slice(0, index - 1) + text.slice(index + 1);
+                                } else {
+                                    text = text.slice(0, index - 1) + text.slice(index);
+                                }
+                            } else {
+                                text = text.slice(0, index - 1) + text.slice(index);
+                            }
                             this.caretIndex(index - 1)
                             this.format(text);
                         }
@@ -371,13 +567,116 @@ class TextEditor extends HTMLElement {
             for (let i = lines[0]; i <= lines[1]; i++) {
                 this.childNodes[i].classList.add(multi ? "multi-selected" : "selected");
             }
+
+            els = this.getElementsByClassName("highlighted");
+            while (els.length > 0) {
+                els[0].classList.remove("highlighted");
+            }
+
+            let caret = this.caretIndex();
+            this.stateManager.now.caret = caret;
+
+            // Highlight matching brackets/math symbols
+            let c0 = this.getElementAtIndex(caret);
+            let c1 = this.getElementAtIndex(caret - 1);
+            if (c0.nodeType == Node.TEXT_NODE) c0 = c0.parentNode;
+            if (c1.nodeType == Node.TEXT_NODE) c1 = c1.parentNode;
+            let type0 = c0.getAttribute("data-type");
+            let type1 = c1.getAttribute("data-type");
+
+            let allParts = [...this.querySelectorAll("span")];
+
+            let index0 = allParts.indexOf(c0);
+            let index1 = allParts.indexOf(c1);
+
+            for (let el of this.highlightMatching) {
+                let matchOpen = false;
+                for (let open of el[0]) {
+                    if (open.type == type0 && open.content == c0.textContent) {
+                        matchOpen = true;
+                        break;
+                    }
+                }
+
+                if (matchOpen) { // At the start of a match
+                    let nested = 1;
+                    let offset = index0;
+                    while (nested > 0) {
+                        offset++;
+                        if (offset >= allParts.length) break;
+                        let curPart = allParts[offset];
+                        let curType = curPart.getAttribute("data-type");
+                        let hadMatch = false;
+                        for (let open of el[1]) {
+                            if (open.type == curType && open.content == curPart.textContent) {
+                                nested--;
+                                hadMatch = true;
+                                break;
+                            }
+                        }
+                        if (hadMatch) continue;
+                        for (let open of el[0]) {
+                            if (open.type == curType && open.content == curPart.textContent) {
+                                nested++;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (nested == 0) {
+                        c0.classList.add("highlighted");
+                        allParts[offset].classList.add("highlighted");
+                    }
+                }
+
+                let matchClose = false;
+                for (let close of el[1]) {
+                    if (close.type == type1 && close.content == c1.textContent) {
+                        matchClose = true;
+                        break;
+                    }
+                }
+
+                if (matchClose) { // At the end of a match
+                    let nested = 1;
+                    let offset = index1;
+                    while (nested > 0) {
+                        offset--;
+                        if (offset < 0) break;
+                        let curPart = allParts[offset];
+                        let curType = curPart.getAttribute("data-type");
+                        let hadMatch = false;
+                        for (let open of el[0]) {
+                            if (open.type == curType && open.content == curPart.textContent) {
+                                nested--;
+                                hadMatch = true;
+                                break;
+                            }
+                        }
+                        if (hadMatch) continue;
+                        for (let open of el[1]) {
+                            if (open.type == curType && open.content == curPart.textContent) {
+                                nested++;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (nested == 0) {
+                        c1.classList.add("highlighted");
+                        allParts[offset].classList.add("highlighted");
+                    }
+                }
+            }
         });
 
         // Prevent formatted pasting, we need it as plaintext
         this.addEventListener('paste', function(event) {
             event.preventDefault();
             this.deleteSelection();
-            this.format(this.text, event.clipboardData.getData('text/plain'));
+            let pastedContent = event.clipboardData.getData('text/plain');
+            pastedContent = pastedContent.replaceAll("\r", "");
+            this.format(this.text, pastedContent);
             this.pushHistory({ content: this.text, caret: this.caretIndex() });
             this.scrollToCaret();
         });
@@ -412,6 +711,39 @@ class TextEditor extends HTMLElement {
         return text;
     }
 
+    get value() {
+        return this.text;
+    }
+
+    set value(val) {
+        val = val.replaceAll("\r", "");
+        this.format(val);
+    }
+
+    /**
+     * Get the index in the text for a line.
+     * @param {*} line
+     * @returns index of start of the line in text
+     */
+    indexAtLine(line) {
+        let text = this.text;
+        let lines = text.split("\n");
+        let index = 0;
+        while (--line >= 0) {
+            if (line < lines.length) index += lines[line].length + 1;
+        }
+        return index;
+    }
+
+    /**
+     * Tokenize the string, tokens are of form { content: text, type: string }
+     * @param {*} text input text
+     * @returns array of tokens
+     */
+    tokenize(text) {
+        return [{ content: text, type: "normal" }];
+    }
+
     /**
      * Turn the text into lines with formatted parts. Should return something 
      * in this format: [[{ type: name, content: text }, ...], ...];
@@ -421,29 +753,31 @@ class TextEditor extends HTMLElement {
      * @returns lines
      */
     generateLines(text) {
+        let tokens = this.tokenize(text);
+
+        // Divide the tokens into lines.
         let lines = [];
         let currentLine = [];
-        let currentPart = {
-            type: 0,
-            content: ""
-        };
-
-        for (let i = 0; i < text.length; i++) {
-            let char = text[i];
-            if (char == "\n") {
-                currentLine.push(currentPart);
-                lines.push(currentLine);
-                currentPart = {
-                    type: currentPart.type,
-                    content: ""
-                };
-                currentLine = [];
+        for (let token of tokens) {
+            if (token.content.includes("\n")) {
+                let linesInToken = token.content.split("\n");
+                let first = true;
+                for (let line of linesInToken) {
+                    if (!first) {
+                        lines.push(currentLine);
+                        currentLine = [];
+                    }
+                    first = false;
+                    currentLine.push({
+                        content: line,
+                        type: token.type
+                    });
+                }
             } else {
-                currentPart.content += char;
+                currentLine.push(token);
             }
         }
 
-        currentLine.push(currentPart);
         lines.push(currentLine);
         return lines;
     }
@@ -453,10 +787,10 @@ class TextEditor extends HTMLElement {
      * @param {*} text string of text to format.
      * @param {*} append optional string to append at caret location before formatting.
      */
-    format(text, append = "") {
+    format(text, append = "", tocaret = true) {
         let caretIndex = this.caretIndex();
         text = text.slice(0, caretIndex) + append + text.slice(caretIndex);
-        caretIndex += append.length;
+        if (tocaret) caretIndex += append.length;
         let newLines = this.generateLines(text);
         let oldLines = this.childNodes;
 
