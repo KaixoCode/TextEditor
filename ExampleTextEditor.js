@@ -6,7 +6,7 @@ class ExampleTextEditor extends TextEditor {
         super();
 
         this.overwrite = ["}", "]", ")"];
-        this.autoComplete = { "{": "}", "[": "]", "(": ")", "$": "$" };
+        this.autoComplete = { "{": "}", "[": "]", "(": ")" };
         this.highlightMatching = [
             [
                 [{ type: SYMBOL, content: "{" }],
